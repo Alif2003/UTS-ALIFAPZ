@@ -16,20 +16,6 @@ app.use(cors());
 
 app.use(express.json());
 
-// Middleware autentikasi
-const isAuth: RequestHandler = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const authHeader = req.headers.authorization;
-  if (authHeader === "kanjut") {
-    next();
-  } else {
-    res.status(401).json({ msg: "Unauthorized access" });
-  }
-};
-
 // CREATE user
 app.post("/courses", (req: Request, res: Response) => {
   const { course_name, course_price, description, status } = req.body;

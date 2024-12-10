@@ -10,7 +10,7 @@ const db = mysql.createConnection({
 
 db.connect((err) => {
   if (err) {
-    console.error("Error connecting to database:", err.message);
+    console.error("Periksa xampp nya mas:", err.message);
     return;
   }
   console.log("Connected to MySQL database.");

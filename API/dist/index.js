@@ -9,76 +9,85 @@ const db = require("../connection/connection");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const port = process.env.PORT;
+const cors = require("cors");
+app.use(cors());
 app.use(express_1.default.json());
-let users = [
-    {
-        id: 1,
-        name: "kamu",
-    },
-    {
-        id: 2,
-        name: "adriq",
-    },
-    {
-        id: 3,
-        name: "dia",
-    },
-    {
-        id: 4,
-        name: "adriq",
-    },
-];
-//create
-app.post("/users", (req, res) => {
-    const newUser = {
-        name: req.body.name,
-        id: Date.now(),
-    };
-    users.push(newUser);
-    res.json(newUser);
-});
-//read
-app.get("/users", (req, res) => {
-    db.query("SELECT * FROM courses", (error, result) => {
-        console.log(result);
-    });
-    res.json(users);
-});
-//update
-app.put("/users", (req, res) => {
-    const { id, name } = req.body;
-    users = users.map((user) => {
-        if (user.id === id) {
-            user.name = name;
+// CREATE user
+app.post("/courses", (req, res) => {
+    const { course_name, course_price, description, status } = req.body;
+    // Menambahkan course baru ke dalam database tanpa menyertakan id
+    db.query("INSERT INTO courses (course_name, course_price, description, status) VALUES (?, ?, ?, ?)", [course_name, course_price, description, status], (error, result) => {
+        if (error) {
+            console.error("Database insertion error:", error);
+            return res.status(500).json({ error: "Database insertion error" });
         }
-        return user;
+        // Mengambil id yang dihasilkan secara otomatis
+        const newCourse = {
+            id: result.insertId,
+            course_name,
+            course_price,
+            description,
+            status,
+        };
+        res.status(201).json(newCourse);
     });
-    res.json(users);
 });
-//delete
-app.delete("/users", (req, res) => {
-    const { id } = req.body;
-    users = users.filter((user) => user.id !== id);
-    res.json(users);
+// READ all users from the database (also logs them)
+app.get("/courses", (req, res) => {
+    db.query("SELECT * FROM courses", (error, result) => {
+        if (error) {
+            console.error("Database query error:", error);
+            return res.status(500).json({ error: "Database query error" });
+        }
+        res.status(200).json(result);
+    });
 });
-const isAuth = (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    if (authHeader === "kanjut") {
-        next();
-    }
-    else {
-        res.status(401);
-        res.json({ msg: "nonono" });
-    }
-};
-//get one user
-app.get("/users/:id", isAuth, (req, res) => {
-    const id = +req.params.id;
-    const user = users.find((user) => user.id === id);
-    res.json(user);
+// UPDATE user by id
+app.put("/courses/:id", (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const { course_name, course_price, description, status } = req.body;
+    db.query("UPDATE courses SET course_name = ?, course_price = ?, description = ?, status = ? WHERE id = ?", [course_name, course_price, description, status, id], (error, result) => {
+        if (error) {
+            console.error("Database update error:", error);
+            return res.status(500).json({ error: "Database update error" });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: "Course not found" });
+        }
+        res.status(200).json({ msg: "Course updated successfully" });
+    });
 });
-//start
+// DELETE user by id
+app.delete("/courses/:id", (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    db.query("DELETE FROM courses WHERE id = ?", [id], (error, result) => {
+        if (error) {
+            console.error("Database deletion error:", error);
+            return res.status(500).json({ error: "Database deletion error" });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: "Course not found" });
+        }
+        res.status(200).json({ msg: "Course deleted successfully" });
+    });
+});
+// GET one user by id
+app.get("/courses/:id", (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    db.query("SELECT * FROM courses WHERE id = ?", [id], (error, result) => {
+        if (error) {
+            console.error("Database query error:", error);
+            return res.status(500).json({ error: "Database query error" });
+        }
+        if (result.length === 0) {
+            return res.status(404).json({ error: "Course not found" });
+        }
+        res.status(200).json(result[0]);
+    });
+});
+// Start the server
 app.listen(port, () => {
-    console.log(`Berjalan di link  http://localhost:${port}/users`);
+    console.log(`Server running at http://localhost:${port}/users`);
 });
+exports.default = app;
 //# sourceMappingURL=index.js.map
