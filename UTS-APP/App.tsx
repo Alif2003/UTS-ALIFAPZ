@@ -9,10 +9,27 @@ import {
   TextInput,
   Modal,
   useWindowDimensions,
+  Alert,
+  Animated,
 } from 'react-native';
 import axios from 'axios';
+import styles from './src/style';
 
 const App = () => {
+  const [animations, setAnimations] = useState({});
+
+  useEffect(() => {
+    if (list.length > 0) {
+      const newAnimations = {};
+      list.forEach(item => {
+        if (!animations[item.id]) {
+          newAnimations[item.id] = new Animated.Value(1);
+        }
+      });
+      setAnimations(prevAnimations => ({...prevAnimations, ...newAnimations}));
+    }
+  }, [list]);
+
   const [list, setList] = useState([]);
   const [visible, setVisible] = useState(false);
 
@@ -41,14 +58,50 @@ const App = () => {
   };
 
   const handleDelete = item => {
-    axios
-      .delete(`http://10.0.2.2:3000/courses/${item.id}`)
-      .then(() => {
-        getList();
-      })
-      .catch(error => {
-        console.error('Error deleting course:', error);
-      });
+    if (!animations[item.id]) {
+      console.error(`Animation for item ID ${item.id} is not defined`);
+      return;
+    }
+
+    // Animasi shake sebelum menghapus
+    Animated.sequence([
+      Animated.timing(animations[item.id], {
+        toValue: 0.1,
+        duration: 50,
+        useNativeDriver: true,
+      }),
+      Animated.timing(animations[item.id], {
+        toValue: -0.1,
+        duration: 50,
+        useNativeDriver: true,
+      }),
+      Animated.timing(animations[item.id], {
+        toValue: 0.1,
+        duration: 50,
+        useNativeDriver: true,
+      }),
+      Animated.timing(animations[item.id], {
+        toValue: 0,
+        duration: 50,
+        useNativeDriver: true,
+      }),
+      // Mengecilkan elemen setelah shake
+      Animated.timing(animations[item.id], {
+        toValue: -1000, // Berpindah jauh keluar layar
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      // Setelah animasi selesai, hapus item dari server
+      axios
+        .delete(`http://10.0.2.2:3000/courses/${item.id}`)
+        .then(() => {
+          getList(); // Perbarui daftar
+        })
+        .catch(error => {
+          console.error('Error deleting course:', error);
+        });
+    });
   };
 
   const handleSave = () => {
@@ -107,9 +160,9 @@ const App = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerContainer}>
-        <Text style={styles.headerText}>Course List ({list.length})</Text>
+        <Text style={styles.headerText}>Course List</Text>
       </View>
-      <Modal animationType="slide" transparent={true} visible={visible}>
+      <Modal animationType="fade" transparent={true} visible={visible}>
         <View style={styles.modalBackground}>
           <View
             style={[
@@ -147,7 +200,12 @@ const App = () => {
                 keyboardType="numeric"
                 onChangeText={setStatus}
               />
-              <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
+              <TouchableOpacity
+                onPress={() => {
+                  handleVisibleModal();
+                  handleSave();
+                }}
+                style={styles.saveButton}>
                 <Text style={styles.buttonText}>
                   {hideId == null ? 'Save' : 'Update'}
                 </Text>
@@ -162,8 +220,23 @@ const App = () => {
           flexWrap: 'wrap',
         }}>
         {list.map((item, index) => (
-          <View
-            style={[styles.courseCard, {width: isLandscape ? '48%' : '90%'}]}
+          <Animated.View
+            style={[
+              styles.courseCard,
+              {width: isLandscape ? '48%' : '90%'},
+              {
+                transform: [
+                  {
+                    translateX: animations[item.id] // Hubungkan animasi translateX
+                      ? animations[item.id].interpolate({
+                          inputRange: [-1, 1],
+                          outputRange: [-10, 10],
+                        })
+                      : 0,
+                  },
+                ],
+              },
+            ]}
             key={index}>
             <View style={styles.courseInfo}>
               <Text style={styles.courseTitle}>
@@ -187,7 +260,7 @@ const App = () => {
                 <Text style={styles.editButton}>Edit</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </Animated.View>
         ))}
       </ScrollView>
       <TouchableOpacity onPress={handleVisibleModal} style={styles.addButton}>
@@ -198,65 +271,3 @@ const App = () => {
 };
 
 export default App;
-
-const styles = StyleSheet.create({
-  // Existing styles remain unchanged
-  container: {flex: 1, backgroundColor: '#f5f5f5'},
-  headerContainer: {
-    padding: 15,
-    backgroundColor: '#6200ee',
-    alignItems: 'center',
-  },
-  headerText: {color: '#fff', fontSize: 22, fontWeight: 'bold'},
-  addButton: {
-    position: 'absolute',
-    bottom: 20,
-    alignSelf: 'center',
-    backgroundColor: '#03dac6',
-    padding: 15,
-    borderRadius: 10,
-  },
-  buttonText: {color: '#fff', textAlign: 'center', fontWeight: 'bold'},
-  modalBackground: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {backgroundColor: 'white', borderRadius: 10, padding: 20},
-  closeButton: {color: '#6200ee', fontWeight: 'bold', textAlign: 'right'},
-  formContainer: {paddingVertical: 10},
-  textInput: {
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    marginVertical: 8,
-  },
-  saveButton: {
-    backgroundColor: '#6200ee',
-    padding: 12,
-    borderRadius: 10,
-    marginTop: 20,
-  },
-  courseCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
-    padding: 15,
-    marginVertical: 8,
-    marginHorizontal: 15,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  courseInfo: {flex: 1},
-  courseTitle: {fontSize: 18, fontWeight: 'bold'},
-  courseDescription: {fontSize: 14, color: '#666'},
-  statusEnabled: {fontSize: 14, color: 'green', fontWeight: 'bold'},
-  statusDisabled: {fontSize: 14, color: 'red', fontWeight: 'bold'},
-  actionsContainer: {justifyContent: 'space-around'},
-  deleteButton: {color: 'red', fontWeight: 'bold'},
-  editButton: {color: 'blue', fontWeight: 'bold'},
-});
